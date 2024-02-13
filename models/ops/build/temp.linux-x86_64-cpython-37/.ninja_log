@@ -1,0 +1,4 @@
+# ninja log v5
+0	5869	1705029142893490091	/home/user/OnlineRefer/models/ops/build/temp.linux-x86_64-cpython-37/home/user/OnlineRefer/models/ops/src/cpu/ms_deform_attn_cpu.o	b359ac0de9e39e1b
+1	20581	1705029157598693047	/home/user/OnlineRefer/models/ops/build/temp.linux-x86_64-cpython-37/home/user/OnlineRefer/models/ops/src/cuda/ms_deform_attn_cuda.o	ee53bc5f36d775c4
+1	27589	1705029164611275228	/home/user/OnlineRefer/models/ops/build/temp.linux-x86_64-cpython-37/home/user/OnlineRefer/models/ops/src/vision.o	9e6d0f98c56e98f9
