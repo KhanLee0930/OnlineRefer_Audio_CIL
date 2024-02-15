@@ -60,6 +60,20 @@ class YTVOSDataset(Dataset):
         self.current_epoch = 0
         print("sampler_steps={} lengths={}".format(self.sampler_steps, self.lengths))
 
+        self.previous_metas = []
+        self.current_metas = []
+        self.memory_metas = []
+        #quality limitation
+        self.previous_exps = {}
+        self.current_exps = {}
+        self.memory_exps = {}
+
+
+        #default set is 800
+        self.memory_size = args.memory_size
+        self.mem_manage = args.memory_manage
+        self.num_trained_exps = 0
+
     def prepare_metas(self):
         # read object information
         with open(os.path.join(str(self.img_folder), 'meta.json'), 'r') as f:
@@ -89,6 +103,43 @@ class YTVOSDataset(Dataset):
                     meta['audio'] = exp_id
                     meta['category'] = vid_meta['objects'][obj_id]['category']
                     self.metas.append(meta)
+    def update_memory_metas(self):
+        if len(self.memory_exps.keys()) < self.memory_size:
+            pass
+        else:
+            if self.mem_manage == "None":
+                pass
+            if self.mem_manage == "random":
+                self.rnd_sampling()
+            if self.mem_manage == "reservoir":
+                self.reservoir_sampling()
+
+
+    def rnd_sampling(self):
+        self.memory_exps |= self.current_exps
+        exp_list = list(self.memory_exps.keys())
+        random.shuffle(exp_list)
+        exp_list = exp_list[:self.memory_size]
+
+        self.memory_exps = {key: value for key, value in self.memory_exps.items() if key in exp_list}
+
+        self.memory_metas = {meta for meta in self.memory_exps if (meta['exp'], meta['category']) in exp_list}
+
+    def reservoir_sampling(self, samples):
+        memory_exp_list = list(self.memory_exps.keys())
+        current_exp_list = list(self.current_exps.keys())
+
+        memory_exp_list = [item for item in memory_exp_list if item not in current_exp_list]
+
+        for exp in current_exp_list:
+            j = np.random.randint(0, self.num_trained_exps)
+            if j < self.memory_size:
+                memory_exp_list[j] = exp
+
+        self.memory_exps = {key: value for key, value in self.memory_exps.items() if key in memory_exp_list}
+
+        self.memory_metas = {meta for meta in self.memory_exps if (meta['exp'], meta['category']) in memory_exp_list}
+
 
     def step_epoch(self):
         # one epoch finishes.
@@ -113,11 +164,21 @@ class YTVOSDataset(Dataset):
         rmin, rmax = np.where(rows)[0][[0, -1]]
         cmin, cmax = np.where(cols)[0][[0, -1]]
         return rmin, rmax, cmin, cmax  # y1, y2, x1, x2
+    def update_metas(self,metas,task_id):
+        videos = set()
+        self.metas = metas
+        for meta in metas:
+            videos.add(meta['video'])
+        self.videos = list(videos)
+        self.task_id = task_id
+        print('\n task{} video num: '.format(task_id), len(self.videos), 'task{} updated clip num: '.format(task_id), len(self.metas))
+        print('\n')
 
     def __len__(self):
         return len(self.metas)
 
     def __getitem__(self, idx):
+
         instance_check = False
         while not instance_check:
             meta = self.metas[idx]  # dict
@@ -153,6 +214,7 @@ class YTVOSDataset(Dataset):
 
             # read frames and masks
             imgs, labels, boxes, masks, valid = [], [], [], [], []
+
             for j in range(num_frames):
                 frame_indx = sample_indx[j]
                 frame_name = frames[frame_indx]
@@ -197,18 +259,22 @@ class YTVOSDataset(Dataset):
                 'orig_size': torch.as_tensor([int(h), int(w)]),
                 'size': torch.as_tensor([int(h), int(w)]),
                 'audio': torch.load(self.aud_file + '/' + video + '/' + audio_id + '.pt'),
-
             }
-
+            # print("This is previous target caption",target['caption'])
             # "boxes" normalize to [0, 1] and transform from xyxy to cxcywh in self._transform
+
             imgs, target = self._transforms(imgs, target)
             imgs = torch.stack(imgs, dim=0)  # [T, 3, H, W]
 
+            # print("This is prior target caption",target['caption'])
             # FIXME: handle "valid", since some box may be removed due to random crop
             if torch.any(target['valid'] == 1):  # at leatst one instance
                 instance_check = True
             else:
                 idx = random.randint(0, self.__len__() - 1)
+
+
+
 
         return imgs, target
 
