@@ -149,6 +149,8 @@ def get_args_parser():
     parser.add_argument('--sampler_lengths', type=int, nargs='*')
     parser.add_argument('--num_clips', default=1, type=int,
                         help="Number of clips for training, default=1 for online mode")
+    #CIL
+    parser.add_argument('--num_task', default=5, type=int)
 
     return parser
 

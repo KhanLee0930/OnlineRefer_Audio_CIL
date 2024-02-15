@@ -113,20 +113,10 @@ def main(args):
 
     batch_sampler_train = torch.utils.data.BatchSampler(
         sampler_train, args.batch_size, drop_last=True)
-    print("============================================>")
-    print("This is batch_sampler_train")
-    print(batch_sampler_train)
-    print("============================================>")
 
     data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
-    print("============================================>")
-    print("This is data_loader_train")
-    for data in data_loader_train:
-        print(data)
-    print(data_loader_train)
-    print("============================================>")
 
     # A2D-Sentences
     if args.dataset_file == 'a2d' or args.dataset_file == 'jhmdb':
@@ -213,18 +203,18 @@ def main(args):
             test_stats = evaluate_a2d(model, data_loader_val, postprocessor, device, args)
         return
 
-    # print("Start training")
-    # writer = SummaryWriter('log/{}'.format(args.output_dir.split('/')[-1]))
-    # start_time = time.time()
-    # for epoch in range(args.start_epoch, args.epochs):
-    #     if args.distributed:
-    #         sampler_train.set_epoch(epoch)
-    #     print('Current number of training frames: {}'.format(dataset_train.num_frames))
-    #     # dataset_train.step_epoch()
-    #     # test_stats = evaluate_online_a2d(model, data_loader_val, postprocessor, device, args)
-    #     train_stats = train_one_epoch(
-    #         model, criterion, data_loader_train, optimizer, device, epoch,
-    #         args.clip_max_norm, args, writer)
+    print("Start training")
+    writer = SummaryWriter('log/{}'.format(args.output_dir.split('/')[-1]))
+    start_time = time.time()
+    for epoch in range(args.start_epoch, args.epochs):
+        if args.distributed:
+            sampler_train.set_epoch(epoch)
+        print('Current number of training frames: {}'.format(dataset_train.num_frames))
+        # dataset_train.step_epoch()
+        # test_stats = evaluate_online_a2d(model, data_loader_val, postprocessor, device, args)
+        train_stats = train_one_epoch(
+            model, criterion, data_loader_train, optimizer, device, epoch,
+            args.clip_max_norm, args, writer)
     #     torch.cuda.empty_cache()
     #     lr_scheduler.step()
     #     dataset_train.step_epoch()

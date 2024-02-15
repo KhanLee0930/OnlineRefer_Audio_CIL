@@ -57,46 +57,88 @@ def make_coco_transforms(image_set, max_size=640):
 
     raise ValueError(f'unknown {image_set}')
 
-ytvos_path = '/home/user/OnlineRefer_Modified/data/Datasets/ref-youtube-vos'
-image_set = 'train'
-root = Path(ytvos_path)
-assert root.exists(), f'provided YTVOS path {root} does not exist'
-PATHS = {
-    "train": (root / "train", root / "meta_expressions" / "train" / "meta_expressions.json"),
-    "val": (root / "valid", root / "meta_expressions" / "val" / "meta_expressions.json"),  # not used actually
-}
-img_folder, ann_file = PATHS[image_set]
+def get_datasets_task(metas,task_id):
+    ytvos_path = '/home/user/OnlineRefer_Modified/data/Datasets/ref-youtube-vos'
+    image_set = 'train'
+    root = Path(ytvos_path)
+    assert root.exists(), f'provided YTVOS path {root} does not exist'
+    PATHS = {
+        "train": (root / "train", root / "meta_expressions" / "train" / "meta_expressions.json"),
+        "val": (root / "valid", root / "meta_expressions" / "val" / "meta_expressions.json"),  # not used actually
+    }
+    img_folder, ann_file = PATHS[image_set]
 
-parser = argparse.ArgumentParser('RVOSNet training and evaluation script', parents=[opts.get_args_parser()])
-args = parser.parse_args()
+    parser = argparse.ArgumentParser('RVOSNet training and evaluation script', parents=[opts.get_args_parser()])
+    args = parser.parse_args()
+    # args.__setattr__('num_frames',5)
 
-dataset_train = YTVOSDataset(image_set, img_folder, ann_file,
-                       transforms=make_coco_transforms(image_set, max_size=640),
-                       return_masks=True,
-                       num_frames=2, max_skip=4, sampler_interval=4,
-                       args=args)
+    dataset_train = YTVOSDataset(image_set, img_folder, ann_file,
+                           transforms=make_coco_transforms(image_set, max_size=640),
+                           return_masks=True,
+                           num_frames=2, max_skip=4, sampler_interval=4,
+                           args=args)
+
+    dataset_train.update_metas(metas,task_id)
+
+    sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    batch_sampler_train = torch.utils.data.BatchSampler(
+            sampler_train, args.batch_size, drop_last=True)
+
+    data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
+                                   collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
 
-sampler_train = torch.utils.data.RandomSampler(dataset_train)
-batch_sampler_train = torch.utils.data.BatchSampler(
-        sampler_train, args.batch_size, drop_last=True)
+    return dataset_train, data_loader_train
+def get_task_metas(task_id):
+    task_metas = []
+    ROOT = '/home/user/OnlineRefer_Audio_CIL/data/'
+    with open(ROOT + 'metas.json', 'r') as f:
+        # metas is the list
+        metas = json.load(f)['metas']
+    with open(ROOT + 'task{}.json'.format(task_id), 'r') as f:
+        tasks = json.load(f)[str(task_id)]
 
-data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
-                               collate_fn=utils.collate_fn, num_workers=args.num_workers)
-print(dataset_train.metas[0])
-# number = 0
-# for data in data_loader_train:
-#     number += 1
-#
-# print(number)
-# print(len(data_loader_train))
+    numbers = []
+    for category in tasks:
+        number = 0
+        exps = tasks[category]
+        for exp in exps:
+            number += 1
+            ids = tasks[category][exp]
+            for id in ids:
+                task_metas.append(metas[id])
+        numbers.append(number)
 
-for i in range(10):
-    print(dataset_train.__getitem__(i))
-# print(dataset.metas[1])
-# print(dataset.metas[2])
-# import json
-# # with open('/home/user/OnlineRefer_Modified/data/Datasets/ref-youtube-vos/meta_expressions/train/sign_meta_expressions.json','r') as f:
-# #     data = json.load(f)
-# #
-# # print(data)
+    return metas,task_metas,list(tasks.keys()),numbers
+
+
+
+
+if __name__ == '__main__':
+    task_id = 0
+    metas,task_metas,categories,numbers = get_task_metas(task_id)
+    print(len(metas),len(task_metas),categories,numbers)
+
+    dataset_train, data_loader_train =get_datasets_task(task_metas,task_id)
+    print(len(dataset_train),len(data_loader_train))
+
+    for i in range(10):
+        dataset_train.__getitem__(i)
+    for data in dataset_train.metas:
+        print(data)
+
+
+    # for sample,targets  in data_loader_train:
+    #     print(targets)
+    #
+    #
+
+    # print(dataset.metas[1])
+    # print(dataset.metas[2])
+    # import json
+    # # with open('/home/user/OnlineRefer_Modified/data/Datasets/ref-youtube-vos/meta_expressions/train/sign_meta_expressions.json','r') as f:
+    # #     data = json.load(f)
+    # #
+    # # print(data)
+    # for task_meta in task_metas:
+    #     print(task_meta)

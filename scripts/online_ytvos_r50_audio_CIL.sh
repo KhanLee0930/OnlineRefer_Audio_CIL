@@ -4,7 +4,7 @@ OUTPUT_DIR=/home/user/OnlineRefer_Modified/work_dirs/online_ytvos_r50_CIL
 
 # training
 python3 main_audio_CIL.py --with_box_refine --binary --freeze_text_encoder \
---epochs 6 --lr_drop 3 5 \
+--epochs 1 --lr_drop 3 5 \
 --lr=1e-5 \
 --lr_backbone=5e-6 \
 --num_frames=2 \
